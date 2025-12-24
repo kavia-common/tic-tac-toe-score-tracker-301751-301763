@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { getRuntimeEnv } from '../env';
+import { NG_APP_SUPABASE_KEY, NG_APP_SUPABASE_URL } from '../env';
 
 export type GameResult = 'win' | 'draw' | 'loss';
 
@@ -28,8 +28,8 @@ export class SupabaseService {
   private warnedAboutSchema = false;
 
   constructor() {
-    const url = getRuntimeEnv('NG_APP_SUPABASE_URL');
-    const key = getRuntimeEnv('NG_APP_SUPABASE_KEY');
+    const url = NG_APP_SUPABASE_URL;
+    const key = NG_APP_SUPABASE_KEY;
 
     if (!url || !key) {
       // Fail gracefully: app still runs, but scores won't persist.

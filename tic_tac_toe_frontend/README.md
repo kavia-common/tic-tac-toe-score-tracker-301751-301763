@@ -17,25 +17,23 @@ The dev server runs on **port 3000** (see `angular.json`).
 
 ## Environment variables
 
-This app expects the following variables (provided by the platform):
+This app expects the following variables (provided by the platform) at **build time**:
 
 - `NG_APP_SUPABASE_URL`
 - `NG_APP_SUPABASE_KEY` (anon key)
 
-### How env vars are wired (runtime)
+### How env vars are wired (build-time)
 
-Angular runs in the browser, so we load a small runtime script:
+The Angular app reads these values from the build toolchain environment (e.g. `import.meta.env`), not from a runtime script.
+There is **no** `runtime-env.js` and **no** `window.__env` usage.
 
-- `public/runtime-env.js` is served at `/runtime-env.js`
-- `src/index.html` loads it before Angular bootstraps
-- the code reads `window.__env.NG_APP_SUPABASE_URL` and `window.__env.NG_APP_SUPABASE_KEY`
+To change values locally, set them in your `.env` (or the environment used by your platform) and restart the dev server.
 
-For local development you can edit `public/runtime-env.js` to include:
+Example `.env`:
 
-```js
-window.__env = window.__env || {};
-window.__env.NG_APP_SUPABASE_URL = "https://xxx.supabase.co";
-window.__env.NG_APP_SUPABASE_KEY = "your_anon_key";
+```bash
+NG_APP_SUPABASE_URL=https://xxx.supabase.co
+NG_APP_SUPABASE_KEY=your_anon_key
 ```
 
 ## Supabase schema

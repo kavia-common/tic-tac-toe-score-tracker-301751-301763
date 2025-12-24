@@ -7,13 +7,16 @@
 
     <div class="controls">
       <label class="field">
-        <span class="label">Username</span>
+        <span class="label">Username (only needed to save)</span>
         <input
           [(ngModel)]="username"
           (blur)="onUsernameBlur()"
           placeholder="e.g. ocean-player"
           autocomplete="off"
         />
+        <span class="label" *ngIf="hasSupabase && usernameRequiredToSave()" style="color: var(--error);">
+          Please enter a username to save your score.
+        </span>
       </label>
 
       <label class="toggle">
@@ -26,7 +29,7 @@
   <div class="layout">
     <div class="card board-card">
       <div class="status">
-        <span class="pill" [class.pill-disabled]="!canPlay()">{{ statusText() }}</span>
+        <span class="pill" [class.pill-disabled]="false">{{ statusText() }}</span>
         <button class="btn btn-secondary" (click)="reset()">Reset</button>
       </div>
 
@@ -44,8 +47,11 @@
         </button>
       </div>
 
-      <div class="hint" *ngIf="!canPlay()">
-        Enter a username to start playing and record scores.
+      <div class="hint" *ngIf="hasSupabase">
+        Tip: add a username to save your score when the game ends.
+      </div>
+      <div class="hint" *ngIf="!hasSupabase">
+        Scores won't be saved because Supabase env variables are not present in this build.
       </div>
     </div>
 

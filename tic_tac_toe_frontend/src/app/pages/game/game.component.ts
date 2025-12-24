@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { SupabaseService, type GameResult } from '../../services/supabase.service';
+import { HAS_SUPABASE } from '../../env';
+import { SupabaseService } from '../../services/supabase.service';
 import { ToastService } from '../../services/toast.service';
 
 type Player = 'X' | 'O';
@@ -18,9 +19,15 @@ export class GameComponent {
   username = '';
   aiEnabled = true;
 
+  // Expose env flag to template; no stale service-based "configured" guards.
+  protected readonly hasSupabase = HAS_SUPABASE;
+
   private readonly board = signal<Cell[]>(Array.from({ length: 9 }, () => null));
   private readonly currentPlayer = signal<Player>('X');
   private readonly gameOver = signal<boolean>(false);
+
+  // Inline validation: only when attempting to save without username (and Supabase exists).
+  protected readonly usernameRequiredToSave = signal<boolean>(false);
 
   readonly statusText = computed(() => {
     const winner = this.getWinner(this.board());
@@ -29,7 +36,8 @@ export class GameComponent {
     return `${this.currentPlayer()}'s turn`;
   });
 
-  readonly canPlay = computed(() => this.username.trim().length > 0);
+  // Gameplay is always allowed; username only affects saving.
+  readonly canPlay = computed(() => true);
 
   constructor(
     private readonly supabase: SupabaseService,
@@ -37,17 +45,11 @@ export class GameComponent {
   ) {}
 
   onUsernameBlur(): void {
-    // Username is only required for saving scores (not for initializing Supabase).
-    // Keep UX minimal: just avoid showing messages once input is provided.
-    if (!this.username.trim()) return;
-
-    if (!this.supabase.isConfigured()) {
-      this.toast.show('info', 'Scores will not be saved because Supabase is not configured.');
-    }
+    // Clear inline validation once user provides anything.
+    if (this.username.trim().length > 0) this.usernameRequiredToSave.set(false);
   }
 
   makeMove(index: number): void {
-    // Allow gameplay even if username is blank; username is enforced only when saving results.
     if (this.gameOver()) return;
 
     const b = this.board().slice();
@@ -58,11 +60,11 @@ export class GameComponent {
 
     const winner = this.getWinner(b);
     if (winner) {
-      this.endGame(this.resultForWinner(winner));
+      void this.endGame(this.scoreForWinner(winner));
       return;
     }
     if (this.isDraw(b)) {
-      this.endGame('draw');
+      void this.endGame(0.5);
       return;
     }
 
@@ -79,6 +81,7 @@ export class GameComponent {
     this.board.set(Array.from({ length: 9 }, () => null));
     this.currentPlayer.set('X');
     this.gameOver.set(false);
+    this.usernameRequiredToSave.set(false);
   }
 
   getCell(index: number): Cell {
@@ -97,21 +100,30 @@ export class GameComponent {
     this.makeMove(choice);
   }
 
-  private async endGame(result: GameResult): Promise<void> {
+  private async endGame(score: number): Promise<void> {
     this.gameOver.set(true);
 
-    const save = await this.supabase.saveScore(this.username.trim(), result);
+    // If Supabase env is present, require username to save; otherwise silently skip saving.
+    if (this.hasSupabase && this.username.trim().length === 0) {
+      this.usernameRequiredToSave.set(true);
+      this.toast.show('info', 'Add a username to save your score.');
+      return;
+    }
+
+    // If not configured, do not show global "not configured" warning — just skip saving.
+    if (!this.hasSupabase) return;
+
+    const save = await this.supabase.saveScore(this.username.trim(), score);
     if (save.ok) {
-      this.toast.show('success', `Saved result (${result}) for ${this.username.trim()}.`);
+      this.toast.show('success', `Saved score (${score}) for ${this.username.trim()}.`);
     } else {
       this.toast.show('error', save.message);
     }
   }
 
-  private resultForWinner(winner: Player): GameResult {
+  private scoreForWinner(winner: Player): number {
     // Player is always X. AI (or second player) is O.
-    if (winner === 'X') return 'win';
-    return 'loss';
+    return winner === 'X' ? 1 : 0;
   }
 
   private isDraw(board: Cell[]): boolean {
@@ -128,7 +140,7 @@ export class GameComponent {
       [2, 5, 8],
       [0, 4, 8],
       [2, 4, 6],
-    ];
+    ] as const;
 
     for (const [a, b, c] of lines) {
       if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];

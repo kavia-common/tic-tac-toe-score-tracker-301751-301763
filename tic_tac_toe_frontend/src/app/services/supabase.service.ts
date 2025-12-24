@@ -2,12 +2,10 @@ import { Injectable } from '@angular/core';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { HAS_SUPABASE, SUPABASE_ANON_KEY, SUPABASE_URL } from '../env';
 
-export type GameResult = 'win' | 'draw' | 'loss';
-
-export interface LeaderboardRow {
+export interface TopScoreRow {
   username: string;
-  total_score: number;
-  latest_played: string;
+  score: number;
+  created_at: string;
 }
 
 /**
@@ -17,7 +15,7 @@ export interface LeaderboardRow {
 interface ScoreRow {
   id?: string;
   username: string;
-  result: number; // 1 | 0.5 | 0
+  score: number;
   created_at?: string;
 }
 
@@ -31,12 +29,12 @@ export class SupabaseService {
     if (!HAS_SUPABASE) {
       // Fail gracefully: app still runs, but scores won't persist.
       this.client = null;
-      // Keep logging informative but not noisy; env.ts already prints presence.
-      console.warn('[Supabase] Not configured. Score saving is disabled.');
+      // Do not spam the UI; callers can handle safe fallbacks.
+      console.warn('[Supabase] Not configured (missing env vars). Score saving is disabled.');
       return;
     }
 
-    // At this point these are non-empty strings by construction.
+    // If HAS_SUPABASE is true, these are non-empty strings by construction.
     this.client = createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string, {
       auth: { persistSession: false },
     });
@@ -52,16 +50,21 @@ export class SupabaseService {
 
   /**
    * PUBLIC_INTERFACE
-   * Save a single game result row. If the table doesn't exist and the current key lacks permissions
-   * to create it, we return a user-actionable error but do not crash the app.
+   * Save a single score row.
+   *
+   * If Supabase is not configured, returns a safe error result.
    */
-  async saveScore(username: string, result: GameResult): Promise<{ ok: true } | { ok: false; message: string }> {
+  async saveScore(
+    username: string,
+    score: number,
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
     if (!this.client) {
-      return { ok: false, message: 'Supabase is not configured (missing env vars).' };
+      // If HAS_SUPABASE is true, we should not hit this; but return safely anyway.
+      console.error('[Supabase] saveScore called but client is not initialized.');
+      return { ok: false, message: 'Score saving is unavailable right now.' };
     }
 
-    const numeric = this.mapResultToScore(result);
-    const payload: ScoreRow = { username, result: numeric };
+    const payload: ScoreRow = { username, score };
 
     const insert = await this.client.from('scores').insert(payload);
 
@@ -79,88 +82,38 @@ export class SupabaseService {
 
   /**
    * PUBLIC_INTERFACE
-   * Fetch top 10 leaderboard rows, aggregated by username.
-   * Sorting: total score desc, then latest_played desc.
+   * Fetch top scores (default 10), sorted by score desc then created_at desc.
    *
-   * Note: Without a custom SQL view/RPC, we aggregate on the client by reading recent rows.
-   * For MVP we fetch up to 1000 latest rows and compute totals.
+   * Returns a safe empty list when Supabase isn't configured.
    */
-  async getLeaderboard(): Promise<{ ok: true; data: LeaderboardRow[] } | { ok: false; message: string }> {
+  async getTopScores(
+    limit = 10,
+  ): Promise<{ ok: true; data: TopScoreRow[] } | { ok: false; message: string; data: TopScoreRow[] }> {
     if (!this.client) {
-      return { ok: false, message: 'Supabase is not configured (missing env vars).' };
+      console.error('[Supabase] getTopScores called but client is not initialized.');
+      return { ok: false, message: 'Leaderboard is unavailable right now.', data: [] };
     }
 
     const res = await this.client
       .from('scores')
-      .select('username,result,created_at')
+      .select('username,score,created_at')
+      .order('score', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(1000);
+      .limit(limit);
 
     if (!res.error && res.data) {
-      const map = new Map<string, { total: number; latest: string }>();
-
-      for (const row of res.data as ScoreRow[]) {
-        if (!row.username || typeof row.result !== 'number' || !row.created_at) continue;
-        const prev = map.get(row.username);
-        if (!prev) {
-          map.set(row.username, { total: row.result, latest: row.created_at });
-        } else {
-          prev.total += row.result;
-          // Because rows are ordered desc, first is latest. But keep max just in case.
-          if (row.created_at > prev.latest) prev.latest = row.created_at;
-        }
-      }
-
-      const rows: LeaderboardRow[] = Array.from(map.entries()).map(([username, agg]) => ({
-        username,
-        total_score: Number(agg.total.toFixed(2)),
-        latest_played: agg.latest,
-      }));
-
-      rows.sort((a, b) => {
-        if (b.total_score !== a.total_score) return b.total_score - a.total_score;
-        return b.latest_played.localeCompare(a.latest_played);
-      });
-
-      return { ok: true, data: rows.slice(0, 10) };
+      return { ok: true, data: res.data as TopScoreRow[] };
     }
 
     if (res.error && this.isMissingTableError(res.error)) {
-      return { ok: false, message: this.schemaHelpMessage() };
+      return { ok: false, message: this.schemaHelpMessage(), data: [] };
     }
 
-    return { ok: false, message: `Failed to load leaderboard: ${res.error?.message ?? 'Unknown error'}` };
-  }
-
-  /**
-   * PUBLIC_INTERFACE
-   * Optional helper: get a user's recent history (last 20 games).
-   */
-  async getUserHistory(username: string): Promise<{ ok: true; data: ScoreRow[] } | { ok: false; message: string }> {
-    if (!this.client) {
-      return { ok: false, message: 'Supabase is not configured (missing env vars).' };
-    }
-
-    const res = await this.client
-      .from('scores')
-      .select('id,username,result,created_at')
-      .eq('username', username)
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (!res.error && res.data) return { ok: true, data: res.data as ScoreRow[] };
-
-    if (res.error && this.isMissingTableError(res.error)) {
-      return { ok: false, message: this.schemaHelpMessage() };
-    }
-
-    return { ok: false, message: `Failed to load history: ${res.error?.message ?? 'Unknown error'}` };
-  }
-
-  private mapResultToScore(result: GameResult): number {
-    if (result === 'win') return 1;
-    if (result === 'draw') return 0.5;
-    return 0;
+    return {
+      ok: false,
+      message: `Failed to load leaderboard: ${res.error?.message ?? 'Unknown error'}`,
+      data: [],
+    };
   }
 
   private isMissingTableError(error: { message: string; code?: string }): boolean {
@@ -187,7 +140,7 @@ create extension if not exists "uuid-ossp";
 create table if not exists public.scores (
   id uuid primary key default uuid_generate_v4(),
   username text not null,
-  result numeric not null,
+  score numeric not null,
   created_at timestamptz not null default now()
 );
 
@@ -205,4 +158,3 @@ to anon
 with check (true);`;
   }
 }
-

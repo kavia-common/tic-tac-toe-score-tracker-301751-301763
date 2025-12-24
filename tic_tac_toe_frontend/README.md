@@ -1,59 +1,69 @@
-# Angular
+# Tic Tac Toe (Angular) + Supabase
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.1.
+A minimal Tic Tac Toe MVP that:
+- lets users enter a username
+- play a 3x3 game vs a simple AI (random move) or 2-player alternating turns
+- saves each game result to Supabase (`win=1`, `draw=0.5`, `loss=0`)
+- shows a top-10 leaderboard aggregated by total score (tie-breaker: most recent play)
 
-## Development server
-
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Running (dev)
 
 ```bash
-ng generate component component-name
+npm install
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+The dev server runs on **port 3000** (see `angular.json`).
 
-```bash
-ng generate --help
+## Environment variables
+
+This app expects the following variables (provided by the platform):
+
+- `NG_APP_SUPABASE_URL`
+- `NG_APP_SUPABASE_KEY` (anon key)
+
+### How env vars are wired (runtime)
+
+Angular runs in the browser, so we load a small runtime script:
+
+- `public/runtime-env.js` is served at `/runtime-env.js`
+- `src/index.html` loads it before Angular bootstraps
+- the code reads `window.__env.NG_APP_SUPABASE_URL` and `window.__env.NG_APP_SUPABASE_KEY`
+
+For local development you can edit `public/runtime-env.js` to include:
+
+```js
+window.__env = window.__env || {};
+window.__env.NG_APP_SUPABASE_URL = "https://xxx.supabase.co";
+window.__env.NG_APP_SUPABASE_KEY = "your_anon_key";
 ```
 
-## Building
+## Supabase schema
 
-To build the project run:
+This app expects a `scores` table:
 
-```bash
-ng build
+```sql
+create extension if not exists "uuid-ossp";
+
+create table if not exists public.scores (
+  id uuid primary key default uuid_generate_v4(),
+  username text not null,
+  result numeric not null,
+  created_at timestamptz not null default now()
+);
+
+-- Optional MVP policies (adjust for production!)
+alter table public.scores enable row level security;
+
+create policy "anon_read_scores"
+on public.scores for select
+to anon
+using (true);
+
+create policy "anon_insert_scores"
+on public.scores for insert
+to anon
+with check (true);
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+If the table/policies are missing, the app will show a toast with instructions and continue running.

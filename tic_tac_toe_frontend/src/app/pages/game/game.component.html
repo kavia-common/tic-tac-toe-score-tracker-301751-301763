@@ -1,0 +1,67 @@
+<section class="page">
+  <div class="card header-card">
+    <div class="title">
+      <h1>Tic Tac Toe</h1>
+      <p class="subtitle">Play a quick game and save your score to Supabase.</p>
+    </div>
+
+    <div class="controls">
+      <label class="field">
+        <span class="label">Username</span>
+        <input
+          [(ngModel)]="username"
+          (blur)="onUsernameBlur()"
+          placeholder="e.g. ocean-player"
+          autocomplete="off"
+        />
+      </label>
+
+      <label class="toggle">
+        <input type="checkbox" [(ngModel)]="aiEnabled" />
+        <span>Play vs AI (O)</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="card board-card">
+      <div class="status">
+        <span class="pill" [class.pill-disabled]="!canPlay()">{{ statusText() }}</span>
+        <button class="btn btn-secondary" (click)="reset()">Reset</button>
+      </div>
+
+      <div class="board" role="grid" aria-label="Tic Tac Toe board">
+        <button
+          class="cell"
+          *ngFor="let _ of [0,1,2,3,4,5,6,7,8]; let i = index"
+          (click)="makeMove(i)"
+          [attr.aria-label]="'Cell ' + (i + 1)"
+          [disabled]="getCell(i) !== null"
+        >
+          <span class="mark" [class.x]="getCell(i)==='X'" [class.o]="getCell(i)==='O'">
+            {{ getCell(i) ?? '' }}
+          </span>
+        </button>
+      </div>
+
+      <div class="hint" *ngIf="!canPlay()">
+        Enter a username to start playing and record scores.
+      </div>
+    </div>
+
+    <div class="card rules-card">
+      <h2>Scoring</h2>
+      <ul>
+        <li><strong>Win</strong> = 1</li>
+        <li><strong>Draw</strong> = 0.5</li>
+        <li><strong>Loss</strong> = 0</li>
+      </ul>
+
+      <p class="note">
+        Leaderboard aggregates your total score across games and breaks ties by most recent play.
+      </p>
+
+      <a class="link" routerLink="/leaderboard">View leaderboard →</a>
+    </div>
+  </div>
+</section>

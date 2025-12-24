@@ -1,0 +1,42 @@
+<section class="page">
+  <div class="card top">
+    <div>
+      <h1>Leaderboard</h1>
+      <p class="subtitle">Top 10 players by total score (tie-breaker: most recent).</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" (click)="load()" [disabled]="loading()">Refresh</button>
+      <a class="btn btn-primary" routerLink="/">Play</a>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="loading" *ngIf="loading()">Loading…</div>
+
+    <div class="empty" *ngIf="!loading() && !hasData()">
+      No scores yet. Play a game to create the first entry.
+    </div>
+
+    <table *ngIf="!loading() && hasData()">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>User</th>
+          <th>Total</th>
+          <th>Latest</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of rows(); let i = index; trackBy: trackByUsername">
+          <td class="rank">{{ i + 1 }}</td>
+          <td class="user">{{ r.username }}</td>
+          <td class="score">
+            <span class="badge">{{ r.total_score }}</span>
+          </td>
+          <td class="latest">{{ r.latest_played | date:'medium' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

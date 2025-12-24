@@ -26,7 +26,9 @@ export default [
         it: "readonly",
         expect: "readonly",
         // Browser globals
+        window: "readonly",
         HTMLElement: "readonly",
+        setTimeout: "readonly",
         // Node.js globals
         process: "readonly",
         console: "readonly"
@@ -34,6 +36,9 @@ export default [
     },
     rules: {
       "no-undef": "error",
+      // This repo doesn't load @typescript-eslint/eslint-plugin rules, only the parser.
+      // Keep template linting happy without requiring additional config.
+      "@typescript-eslint/no-explicit-any": "off",
       "no-unused-vars": "off", // Turn off since TS handles this
       "no-unreachable": "error",
       "no-unexpected-multiline": "error",

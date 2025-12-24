@@ -1,3 +1,25 @@
-<div class="container">
-  <h1>{{ title }}</h1>
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <div class="logo">TTT</div>
+      <div class="brand-text">
+        <div class="name">Ocean Tic Tac Toe</div>
+        <div class="tag">MVP score tracker</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Game</a>
+      <a routerLink="/leaderboard" routerLinkActive="active">Leaderboard</a>
+    </nav>
+  </header>
+
+  <main class="main">
+    <router-outlet></router-outlet>
+  </main>
+
+  <div *ngIf="toast()" [class]="toastClass()" role="status" aria-live="polite">
+    <div class="toast-text">{{ toast()?.text }}</div>
+    <button class="toast-close" (click)="toastService.clear()" aria-label="Close">✕</button>
+  </div>
 </div>

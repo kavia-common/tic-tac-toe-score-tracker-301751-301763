@@ -26,14 +26,17 @@ export class LeaderboardComponent {
 
   async load(): Promise<void> {
     this.loading.set(true);
-    const res = await this.supabase.getLeaderboard();
-    if (res.ok) {
-      this.rows.set(res.data);
-    } else {
+
+    try {
+      const data = await this.supabase.getLeaderboard();
+      this.rows.set(data);
+    } catch (e) {
       this.rows.set([]);
-      this.toast.show('error', res.message);
+      const msg = e instanceof Error ? e.message : 'Failed to load leaderboard.';
+      this.toast.show('error', msg);
+    } finally {
+      this.loading.set(false);
     }
-    this.loading.set(false);
   }
 
   trackByUsername(_: number, row: LeaderboardRow): string {

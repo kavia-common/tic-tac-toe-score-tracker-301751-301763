@@ -32,9 +32,9 @@
           <td class="rank">{{ i + 1 }}</td>
           <td class="user">{{ r.username }}</td>
           <td class="score">
-            <span class="badge">{{ r.total_score }}</span>
+            <span class="badge">{{ r.total }}</span>
           </td>
-          <td class="latest">{{ r.latest_played | date:'medium' }}</td>
+          <td class="latest">{{ r.last_played | date:'medium' }}</td>
         </tr>
       </tbody>
     </table>

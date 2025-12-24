@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { NG_APP_SUPABASE_KEY, NG_APP_SUPABASE_URL } from '../env';
+import { HAS_SUPABASE, SUPABASE_ANON_KEY, SUPABASE_URL } from '../env';
 
 export type GameResult = 'win' | 'draw' | 'loss';
 
@@ -28,19 +28,16 @@ export class SupabaseService {
   private warnedAboutSchema = false;
 
   constructor() {
-    const url = NG_APP_SUPABASE_URL;
-    const key = NG_APP_SUPABASE_KEY;
-
-    if (!url || !key) {
+    if (!HAS_SUPABASE) {
       // Fail gracefully: app still runs, but scores won't persist.
       this.client = null;
-      console.warn(
-        '[Supabase] Missing NG_APP_SUPABASE_URL / NG_APP_SUPABASE_KEY. Score saving is disabled.',
-      );
+      // Keep logging informative but not noisy; env.ts already prints presence.
+      console.warn('[Supabase] Not configured. Score saving is disabled.');
       return;
     }
 
-    this.client = createClient(url, key, {
+    // At this point these are non-empty strings by construction.
+    this.client = createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string, {
       auth: { persistSession: false },
     });
   }
@@ -139,9 +136,7 @@ export class SupabaseService {
    * PUBLIC_INTERFACE
    * Optional helper: get a user's recent history (last 20 games).
    */
-  async getUserHistory(
-    username: string,
-  ): Promise<{ ok: true; data: ScoreRow[] } | { ok: false; message: string }> {
+  async getUserHistory(username: string): Promise<{ ok: true; data: ScoreRow[] } | { ok: false; message: string }> {
     if (!this.client) {
       return { ok: false, message: 'Supabase is not configured (missing env vars).' };
     }
@@ -172,8 +167,11 @@ export class SupabaseService {
     const msg = (error.message || '').toLowerCase();
     // Common PostgREST messages when table is absent
     return (
-      msg.includes('relation') && msg.includes('does not exist')
-    ) || msg.includes('could not find the table') || msg.includes('unknown table') || msg.includes('schema cache');
+      (msg.includes('relation') && msg.includes('does not exist')) ||
+      msg.includes('could not find the table') ||
+      msg.includes('unknown table') ||
+      msg.includes('schema cache')
+    );
   }
 
   private schemaHelpMessage(): string {
@@ -207,3 +205,4 @@ to anon
 with check (true);`;
   }
 }
+

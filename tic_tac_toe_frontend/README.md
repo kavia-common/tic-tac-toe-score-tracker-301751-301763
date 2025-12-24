@@ -24,8 +24,11 @@ This app expects the following variables (provided by the platform) at **build t
 
 ### How env vars are wired (build-time)
 
-The Angular app reads these values from the build toolchain environment (e.g. `import.meta.env`), not from a runtime script.
-There is **no** `runtime-env.js` and **no** `window.__env` usage.
+The Angular app reads these values at build/serve time from the toolchain environment:
+- `import.meta.env.NG_APP_*` (Vite-like injection), and
+- `process.env.NG_APP_*` (SSR/build fallback)
+
+There is **no** `runtime-env.js` and **no** `window.__env` usage. The preview environment for this workspace already injects `NG_APP_*` variables, so Supabase should be configured automatically when they are present.
 
 To change values locally, set them in your `.env` (or the environment used by your platform) and restart the dev server.
 

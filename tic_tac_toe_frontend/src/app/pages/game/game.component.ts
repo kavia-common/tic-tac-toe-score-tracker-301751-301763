@@ -37,17 +37,17 @@ export class GameComponent {
   ) {}
 
   onUsernameBlur(): void {
+    // Username is only required for saving scores (not for initializing Supabase).
+    // Keep UX minimal: just avoid showing messages once input is provided.
     if (!this.username.trim()) return;
+
     if (!this.supabase.isConfigured()) {
-      this.toast.show('info', 'Supabase not configured; scores will not be saved.');
+      this.toast.show('info', 'Scores will not be saved because Supabase is not configured.');
     }
   }
 
   makeMove(index: number): void {
-    if (!this.canPlay()) {
-      this.toast.show('error', 'Please enter a username to start playing.');
-      return;
-    }
+    // Allow gameplay even if username is blank; username is enforced only when saving results.
     if (this.gameOver()) return;
 
     const b = this.board().slice();
